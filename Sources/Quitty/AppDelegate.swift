@@ -5,13 +5,21 @@ import SwiftUI
 /// Owns the menu bar item and the panel it opens.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let model = AppModel()
+    // Created at launch rather than in init: main.swift constructs the
+    // delegate outside the main actor.
+    private var model: AppModel!
     private var statusItem: NSStatusItem!
-    private let popover = NSPopover()
+    private var popover: NSPopover!
     private var hostingController: NSHostingController<MenuView>!
     private var iconUpdates: AnyCancellable?
 
+    nonisolated override init() {
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        model = AppModel()
+        popover = NSPopover()
         hostingController = NSHostingController(rootView: MenuView(model: model, updater: model.updater))
         if #available(macOS 13.0, *) {
             hostingController.sizingOptions = .preferredContentSize
