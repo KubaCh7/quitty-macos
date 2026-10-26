@@ -104,7 +104,7 @@ You can also push a tag that starts with `v` (for example `git tag v1.0.1 && git
 
 ## How it works
 
-Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window closes, Quitty reads the app's window list and confirms it once more about 0.2 s later, because some apps briefly swap one window for another. If no windows are left, Quitty calls `terminate()`, which is the same as choosing Quit.
+Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window closes, Quitty reads the app's window list and confirms it once more about 0.2 s later, because some apps briefly swap one window for another. If no windows are left, and the window server agrees that the app shows nothing on screen, Quitty calls `terminate()`, which is the same as choosing Quit. The window server check matters because Accessibility sometimes reports an empty window list for an app that is busy; an app you are looking at is never quit.
 
 What counts as an open window:
 

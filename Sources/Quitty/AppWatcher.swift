@@ -195,6 +195,13 @@ final class AppWatcher {
 
         let settling = remainingSettleTime()
         if confirming && settling == 0 {
+            // Accessibility sometimes reports no windows for an app that is
+            // busy. The window server is the second opinion: never quit an
+            // app that still shows a window on screen.
+            guard onScreenWindowIDs(visibleOnly: true).isEmpty else {
+                hadWindows = true
+                return
+            }
             hadWindows = false
             onLastWindowClosed?(self)
         } else {
@@ -245,13 +252,22 @@ final class AppWatcher {
     }
 
     /// Window server IDs of this app's windows that are on screen right now.
-    private func onScreenWindowIDs() -> Set<CGWindowID> {
+    /// With `visibleOnly`, only normal-level windows that are opaque and big
+    /// enough for someone to be looking at.
+    private func onScreenWindowIDs(visibleOnly: Bool = false) -> Set<CGWindowID> {
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return [] }
         var ids = Set<CGWindowID>()
         for info in list {
             guard info[kCGWindowOwnerPID as String] as? pid_t == app.processIdentifier,
                   let id = info[kCGWindowNumber as String] as? CGWindowID else { continue }
+            if visibleOnly {
+                let layer = info[kCGWindowLayer as String] as? Int ?? 0
+                let alpha = info[kCGWindowAlpha as String] as? Double ?? 1
+                let bounds = (info[kCGWindowBounds as String] as? NSDictionary)
+                    .flatMap { CGRect(dictionaryRepresentation: $0 as CFDictionary) } ?? .zero
+                guard layer == 0, alpha > 0.01, bounds.width >= 50, bounds.height >= 50 else { continue }
+            }
             ids.insert(id)
         }
         return ids
@@ -263,7 +279,8 @@ final class AppWatcher {
         var value: CFTypeRef?
         switch AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) {
         case .success:
-            return (value as? [AXUIElement]) ?? []
+            // An unexpected value means we don't know, not that there are no windows.
+            return value as? [AXUIElement]
         case .noValue:
             return []
         default:
