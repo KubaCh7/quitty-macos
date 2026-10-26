@@ -2,15 +2,15 @@
 
 On macOS, clicking the red ✕ only closes the window. The app keeps running in the background (the dot under its Dock icon). Quitty changes that: **when you close an app's last window, Quitty quits the app**, just like ⌘Q.
 
-- Minimizing (yellow button) and hiding (⌘H) **don't** quit the app, because its windows still exist.
+- Minimizing (yellow button), full screen and zoom (green button) and hiding (⌘H) **don't** quit the app, because its windows still exist.
 - Quitting works like ⌘Q, so apps still ask you to save unsaved changes.
 - Finder is never quit, and neither are menu bar apps (apps without a Dock icon).
 - You can add your own exceptions from the menu, e.g. Music or Spotify, so they keep playing without a window.
 - Apps get a few seconds of protection after launch, so a splash screen closing doesn't quit them before the main window opens.
 - Quitty updates itself from GitHub Releases.
-- The menu bar panel and update window use Liquid Glass on macOS 26 Tahoe. On older macOS versions they fall back to standard translucent materials.
+- The menu bar panel and update window use Liquid Glass on macOS 26 Tahoe. On macOS 12–15 they fall back to standard translucent materials.
 
-Requires macOS 13 (Ventura) or later. Runs natively on Apple Silicon and Intel.
+Requires macOS 12 (Monterey) or later. Runs natively on Apple Silicon and Intel.
 
 ## Download
 
@@ -81,7 +81,15 @@ You can also push a tag that starts with `v` (for example `git tag v1.0.1 && git
 
 ## How it works
 
-Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window closes, Quitty reads the app's window list and confirms it once more about 0.2 s later, because some apps briefly swap one window for another. If no windows are left, Quitty calls `terminate()`, which is the same as choosing Quit. Floating palettes don't count as windows. Minimized windows do.
+Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window closes, Quitty reads the app's window list and confirms it once more about 0.2 s later, because some apps briefly swap one window for another. If no windows are left, Quitty calls `terminate()`, which is the same as choosing Quit.
+
+What counts as an open window:
+
+- Normal windows and dialogs, including ones on other Spaces, minimized windows and full screen windows.
+- Windows of other types (Steam's windows are like this) count only while they are visible on screen.
+- Floating palettes never count.
+
+After a window moves or resizes, or after you switch Spaces, Quitty waits 1.5 s before quitting anything. Entering full screen or zooming empties an app's window list for a moment, and this pause keeps the app from being quit.
 
 Some apps don't send every Accessibility notification, so Quitty also checks the frontmost app's windows every 0.3 s.
 

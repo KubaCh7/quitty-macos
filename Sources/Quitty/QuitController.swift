@@ -6,6 +6,7 @@ final class QuitController {
     private var watchers: [pid_t: AppWatcher] = [:]
     private var workspaceObservers: [NSObjectProtocol] = []
     private var pollTimer: Timer?
+    private var lastSpaceChange = Date.distantPast
     private(set) var isRunning = false
 
     /// Apps get this long after launch before they can be quit, so splash
@@ -30,6 +31,9 @@ final class QuitController {
             center.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
                 guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
                 self?.detach(app)
+            },
+            center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.lastSpaceChange = Date()
             },
         ]
 
@@ -62,6 +66,7 @@ final class QuitController {
 
         let watcher = AppWatcher(app: app)
         watcher.onLastWindowClosed = { [weak self] in self?.lastWindowClosed(in: $0) }
+        watcher.lastSpaceChange = { [weak self] in self?.lastSpaceChange ?? .distantPast }
         if watcher.start() {
             watchers[pid] = watcher
         } else if attempt < Self.maxAttachAttempts {

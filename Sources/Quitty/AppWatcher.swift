@@ -1,6 +1,11 @@
 import AppKit
 import ApplicationServices
 
+/// Private but long-stable HIServices call that maps an Accessibility window
+/// to its window server ID. Window managers like Rectangle and AltTab use it.
+@_silgen_name("_AXUIElementGetWindow")
+private func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 /// C callback for every Accessibility notification; forwards to the owning `AppWatcher`.
 private let axCallback: AXObserverCallback = { _, element, notification, refcon in
     guard let refcon else { return }
@@ -13,6 +18,8 @@ private let axCallback: AXObserverCallback = { _, element, notification, refcon 
 final class AppWatcher {
     let app: NSRunningApplication
     var onLastWindowClosed: ((AppWatcher) -> Void)?
+    /// When the user last switched Spaces; entering full screen does that too.
+    var lastSpaceChange: () -> Date = { .distantPast }
 
     private let appElement: AXUIElement
     private var observer: AXObserver?
@@ -22,6 +29,7 @@ final class AppWatcher {
     /// True once the app has shown a window, so apps that launch without one
     /// aren't quit straight away.
     private var hadWindows = false
+    private var lastWindowGeometryChange = Date.distantPast
 
     /// Wait after a window disappears before reading the window list, which
     /// can still contain the closed window for a moment.
@@ -29,6 +37,9 @@ final class AppWatcher {
     /// Wait before confirming that the app really has no windows left. Covers
     /// apps that briefly swap one window for another.
     private static let confirmDelay: TimeInterval = 0.2
+    /// After a window moves, resizes or changes Space, give it this long to
+    /// settle. Full screen and zoom animations briefly empty the window list.
+    private static let settleTime: TimeInterval = 1.5
     private static let maxCheckRetries = 3
 
     private static let appNotifications = [
@@ -37,12 +48,22 @@ final class AppWatcher {
         kAXMainWindowChangedNotification,
     ]
 
-    /// Window subroles that don't keep an app open on their own (palettes,
-    /// invisible helper windows).
+    private static let windowNotifications = [
+        kAXUIElementDestroyedNotification,
+        kAXWindowMovedNotification,
+        kAXWindowResizedNotification,
+    ]
+
+    /// Windows that always keep an app open.
+    private static let standardSubroles: Set<String> = [
+        kAXStandardWindowSubrole,
+        kAXDialogSubrole,
+    ]
+
+    /// Palettes and panels that never keep an app open on their own.
     private static let ignoredSubroles: Set<String> = [
         kAXFloatingWindowSubrole,
         kAXSystemFloatingWindowSubrole,
-        kAXUnknownSubrole,
     ]
 
     init(app: NSRunningApplication) {
@@ -87,7 +108,9 @@ final class AppWatcher {
         pendingCheck = nil
         guard let observer else { return }
         for window in windows {
-            AXObserverRemoveNotification(observer, window, kAXUIElementDestroyedNotification as CFString)
+            for name in Self.windowNotifications {
+                AXObserverRemoveNotification(observer, window, name as CFString)
+            }
         }
         for name in Self.appNotifications {
             AXObserverRemoveNotification(observer, appElement, name as CFString)
@@ -103,9 +126,13 @@ final class AppWatcher {
     }
 
     fileprivate func handle(notification: String, element: AXUIElement) {
-        if notification == kAXUIElementDestroyedNotification {
+        switch notification {
+        case kAXWindowMovedNotification, kAXWindowResizedNotification:
+            lastWindowGeometryChange = Date()
+            return
+        case kAXUIElementDestroyedNotification:
             windows.removeAll { CFEqual($0, element) }
-        } else {
+        default:
             syncWindows()
         }
         // Focus also moves when a window closes, so every notification is a
@@ -118,7 +145,7 @@ final class AppWatcher {
     private func syncWindows() {
         guard let current = copyWindows() else { return }
         current.forEach(watch)
-        if current.contains(where: countsAsOpen) {
+        if hasOpenWindow(current) {
             hadWindows = true
         }
     }
@@ -127,8 +154,10 @@ final class AppWatcher {
         guard let observer, !windows.contains(where: { CFEqual($0, window) }) else { return }
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         let err = AXObserverAddNotification(observer, window, kAXUIElementDestroyedNotification as CFString, refcon)
-        if err == .success || err == .notificationAlreadyRegistered {
-            windows.append(window)
+        guard err == .success || err == .notificationAlreadyRegistered else { return }
+        windows.append(window)
+        for name in [kAXWindowMovedNotification, kAXWindowResizedNotification] {
+            AXObserverAddNotification(observer, window, name as CFString, refcon)
         }
     }
 
@@ -158,26 +187,74 @@ final class AppWatcher {
         }
         current.forEach(watch)
 
-        if current.contains(where: countsAsOpen) {
+        if hasOpenWindow(current) {
             hadWindows = true
-        } else if hadWindows {
-            if confirming {
-                hadWindows = false
-                onLastWindowClosed?(self)
-            } else {
-                scheduleCheck(after: Self.confirmDelay, confirming: true)
+            return
+        }
+        guard hadWindows else { return }
+
+        let settling = remainingSettleTime()
+        if confirming && settling == 0 {
+            hadWindows = false
+            onLastWindowClosed?(self)
+        } else {
+            scheduleCheck(after: max(Self.confirmDelay, settling), confirming: true)
+        }
+    }
+
+    /// Seconds until recent window or Space changes have settled.
+    private func remainingSettleTime() -> TimeInterval {
+        let lastChange = max(lastWindowGeometryChange, lastSpaceChange())
+        return max(0, Self.settleTime - Date().timeIntervalSince(lastChange))
+    }
+
+    private func hasOpenWindow(_ windows: [AXUIElement]) -> Bool {
+        // Listing on-screen windows is comparatively slow, so only do it once
+        // a window actually needs it.
+        var onScreen: Set<CGWindowID>?
+        return windows.contains { window in
+            countsAsOpen(window) {
+                if onScreen == nil {
+                    onScreen = onScreenWindowIDs()
+                }
+                return onScreen!
             }
         }
     }
 
-    /// Whether a window keeps the app open. Minimized windows count; floating
-    /// palettes and invisible helper windows don't.
-    private func countsAsOpen(_ window: AXUIElement) -> Bool {
-        if boolAttribute(window, kAXMinimizedAttribute) == true {
+    /// Whether a window keeps the app open. Standard windows always do, even
+    /// on another Space; minimized and full screen ones too. Floating palettes
+    /// never do. Anything else (Steam's windows report an unknown subrole)
+    /// counts only while it is actually visible.
+    private func countsAsOpen(_ window: AXUIElement, onScreen: () -> Set<CGWindowID>) -> Bool {
+        if boolAttribute(window, kAXMinimizedAttribute) == true || boolAttribute(window, "AXFullScreen") == true {
             return true
         }
         guard let subrole = stringAttribute(window, kAXSubroleAttribute) else { return true }
-        return !Self.ignoredSubroles.contains(subrole)
+        if Self.standardSubroles.contains(subrole) {
+            return true
+        }
+        if Self.ignoredSubroles.contains(subrole) {
+            return false
+        }
+        var windowID: CGWindowID = 0
+        if _AXUIElementGetWindow(window, &windowID) == .success, windowID != 0 {
+            return onScreen().contains(windowID)
+        }
+        return !(stringAttribute(window, kAXTitleAttribute) ?? "").isEmpty
+    }
+
+    /// Window server IDs of this app's windows that are on screen right now.
+    private func onScreenWindowIDs() -> Set<CGWindowID> {
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return [] }
+        var ids = Set<CGWindowID>()
+        for info in list {
+            guard info[kCGWindowOwnerPID as String] as? pid_t == app.processIdentifier,
+                  let id = info[kCGWindowNumber as String] as? CGWindowID else { continue }
+            ids.insert(id)
+        }
+        return ids
     }
 
     /// The app's windows (minimized and hidden ones included), or nil if the

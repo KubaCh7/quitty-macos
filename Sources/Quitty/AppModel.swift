@@ -1,6 +1,5 @@
 import AppKit
 import ApplicationServices
-import ServiceManagement
 import UniformTypeIdentifiers
 
 /// An app shown in the "Never quit" list.
@@ -22,7 +21,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isTrusted = AXIsProcessTrusted()
     @Published private(set) var excluded: Set<String>
     @Published private(set) var apps: [AppEntry] = []
-    @Published private(set) var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @Published private(set) var launchAtLogin = LoginItem.isEnabled
 
     let updater = Updater()
 
@@ -75,7 +74,7 @@ final class AppModel: ObservableObject {
     /// Re-reads state that can change outside Quitty while the panel is closed.
     func refresh() {
         isTrusted = AXIsProcessTrusted()
-        launchAtLogin = SMAppService.mainApp.status == .enabled
+        launchAtLogin = LoginItem.isEnabled
         refreshApps()
     }
 
@@ -153,13 +152,8 @@ final class AppModel: ObservableObject {
     // MARK: - Settings
 
     func setLaunchAtLogin(_ enabled: Bool) {
-        let service = SMAppService.mainApp
         do {
-            if enabled {
-                try service.register()
-            } else {
-                try service.unregister()
-            }
+            try LoginItem.setEnabled(enabled)
         } catch {
             let alert = NSAlert()
             alert.messageText = "Couldn't change Launch at Login"
@@ -167,7 +161,7 @@ final class AppModel: ObservableObject {
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }
-        launchAtLogin = service.status == .enabled
+        launchAtLogin = LoginItem.isEnabled
     }
 
     func openAccessibilitySettings() {

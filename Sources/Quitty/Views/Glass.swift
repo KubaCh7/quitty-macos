@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Liquid Glass on macOS 26, with material fallbacks for macOS 13–15. The
+// Liquid Glass on macOS 26, with material fallbacks for macOS 12–15. The
 // compiler check keeps the project building with Xcode versions older than 26.
 
 extension View {

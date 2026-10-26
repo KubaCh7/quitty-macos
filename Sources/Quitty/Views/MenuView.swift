@@ -257,12 +257,3 @@ private struct SettingRow: View {
         }
     }
 }
-
-/// The menu bar icon; filled while Quitty is active.
-struct MenuBarIcon: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        Image(systemName: model.isActive ? "xmark.circle.fill" : "xmark.circle")
-    }
-}
