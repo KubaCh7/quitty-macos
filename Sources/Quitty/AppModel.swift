@@ -47,9 +47,17 @@ final class AppModel: ObservableObject {
     }
 
     func start() {
+        // Every build has a new signature, so after an update macOS keeps the
+        // switch on but no longer applies it. Clear that entry so the prompt
+        // below adds a fresh one.
+        if !AXIsProcessTrusted() && settings.hadAccessibilityAccess {
+            settings.hadAccessibilityAccess = false
+            clearAccessibilityEntry()
+        }
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         isTrusted = AXIsProcessTrustedWithOptions(options)
         if isTrusted {
+            settings.hadAccessibilityAccess = true
             controller.start()
         } else {
             waitForAccessibilityPermission()
@@ -85,6 +93,7 @@ final class AppModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             isTrusted = true
+            settings.hadAccessibilityAccess = true
             controller.start()
         }
     }
@@ -171,15 +180,19 @@ final class AppModel: ObservableObject {
     /// Clears a stale Accessibility entry (left behind by an older build) and
     /// asks for access again.
     func resetAccessibilityPermission() {
+        clearAccessibilityEntry()
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        openAccessibilitySettings()
+    }
+
+    private func clearAccessibilityEntry() {
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
         let reset = Process()
         reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
         reset.arguments = ["reset", "Accessibility", bundleID]
         try? reset.run()
         reset.waitUntilExit()
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-        openAccessibilitySettings()
     }
 
     // MARK: - Updates

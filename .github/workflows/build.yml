@@ -22,6 +22,15 @@ jobs:
       - name: Build Quitty.dmg
         run: ./scripts/build-dmg.sh
 
+      # A broken signature makes macOS call the app damaged, with no
+      # "Open Anyway" option, so check the copy people actually get.
+      - name: Check the app inside the DMG
+        run: |
+          MOUNT="$(mktemp -d)"
+          hdiutil attach build/Quitty.dmg -nobrowse -readonly -mountpoint "$MOUNT"
+          codesign --verify --deep --strict --verbose=2 "$MOUNT/Quitty.app"
+          hdiutil detach "$MOUNT"
+
       # The in-app updater downloads the zip; people download the DMG.
       - name: Zip
         run: ditto -c -k --keepParent build/Quitty.app build/Quitty.zip

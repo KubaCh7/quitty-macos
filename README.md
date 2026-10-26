@@ -19,28 +19,32 @@ Requires macOS 12 (Monterey) or later. Runs natively on Apple Silicon and Intel.
 All versions are on the [Releases](https://github.com/KubaCh7/quitty-macos/releases) page.
 
 1. Open `Quitty.dmg` and drag **Quitty** onto the **Applications** folder in the window that appears.
-2. Open Quitty from Applications. It isn't signed with an Apple Developer certificate, so macOS blocks it the first time:
-   - macOS 15 and later: open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Quitty.
-   - macOS 12–14: right-click Quitty, choose **Open**, then **Open** again.
-
-   Or run `xattr -dr com.apple.quarantine /Applications/Quitty.app` in Terminal.
+2. Open Quitty from Applications. It isn't signed with a paid Apple Developer certificate, so macOS blocks it the first time:
+   - **macOS 15 and later:** macOS says it can't verify Quitty. Click **Done**, then open **System Settings → Privacy & Security**, scroll to the bottom and click **Open Anyway** next to "Quitty was blocked". Enter your password and click **Open Anyway** once more. The button only shows up for about an hour after the blocked attempt, so if it's missing, open Quitty again first.
+   - **macOS 12–14:** right-click Quitty, choose **Open**, then **Open** again.
 3. Grant Accessibility access (see below).
 
 If you open Quitty from the disk image or from Downloads instead, it offers to move itself to Applications and ejects the disk image afterwards.
 
 Quitty lives in the menu bar, so opening it doesn't show a window. Open it again from Applications or Spotlight to bring up its panel.
 
+### Install with one command
+
+This downloads the latest release into Applications and opens it. Files downloaded with `curl` aren't marked as coming from the internet, so there's no Gatekeeper prompt and no **Open Anyway** step:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/KubaCh7/quitty-macos/HEAD/scripts/install.sh | bash
+```
+
 ### "You can't open the application Quitty because it is not responding"
 
-An earlier copy of Quitty is stuck in the background (versions up to 1.3.0 could hang on the "Move to Applications" question). Force-quit it, clear the download flag and open it again:
+An earlier copy of Quitty is stuck in the background (versions up to 1.3.0 could hang on the "Move to Applications" question). Force-quit it, then install again with the command above, or:
 
 ```sh
 killall Quitty
 xattr -cr /Applications/Quitty.app
 open /Applications/Quitty.app
 ```
-
-Clearing the flag also gets you past Gatekeeper when **Open Anyway** doesn't work.
 
 ## Accessibility permission
 
@@ -50,7 +54,9 @@ Quitty needs Accessibility access to see when you close other apps' windows:
 
 macOS asks for this when Quitty starts. Quitty starts working as soon as you turn the switch on, without a restart.
 
-> **Quitty is switched on in Accessibility but still says it needs access?** macOS is holding a stale entry from an older copy, which is common with v1.0.0. Click **Already on? Reset** in the Quitty panel, then turn Quitty on again in System Settings. You can do the same in Terminal with `tccutil reset Accessibility com.kubach7.quitty`.
+> Each update has a new signature, and macOS then ignores the old Accessibility switch. Quitty notices this after an update, clears the old entry and asks again, so you only need to turn the switch back on.
+>
+> **Quitty is switched on in Accessibility but still says it needs access?** macOS is holding a stale entry from an older copy. Click **Already on? Reset** in the Quitty panel, then turn Quitty on again in System Settings. You can do the same in Terminal with `tccutil reset Accessibility com.kubach7.quitty`.
 
 ## The Quitty panel
 

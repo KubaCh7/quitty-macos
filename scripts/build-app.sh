@@ -34,11 +34,9 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
   codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
 else
-  # Ad-hoc signatures change with every build, which makes macOS forget the
-  # Accessibility permission after each update. Pinning the designated
-  # requirement to the bundle ID lets the permission carry over.
-  BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' Resources/Info.plist)"
-  codesign --force --sign - --requirements "=designated => identifier \"$BUNDLE_ID\"" "$APP"
+  # Plain ad-hoc signature. Gatekeeper's "Open Anyway" approves an app by its
+  # designated requirement, so don't replace the default one.
+  codesign --force --sign - "$APP"
 fi
-codesign --display --requirements - "$APP"
+codesign --verify --deep --strict --verbose=2 "$APP"
 echo "Built $APP"

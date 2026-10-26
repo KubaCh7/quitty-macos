@@ -15,6 +15,7 @@ final class Settings {
     private let autoCheckKey = "autoCheckForUpdates"
     private let skippedVersionKey = "skippedVersion"
     private let lastUpdateCheckKey = "lastUpdateCheck"
+    private let hadAccessibilityKey = "hadAccessibilityAccess"
 
     private init() {
         defaults.register(defaults: [
@@ -48,6 +49,12 @@ final class Settings {
     var lastUpdateCheck: Date? {
         get { defaults.object(forKey: lastUpdateCheckKey) as? Date }
         set { defaults.set(newValue, forKey: lastUpdateCheckKey) }
+    }
+
+    /// Whether this Mac has granted Quitty Accessibility access before.
+    var hadAccessibilityAccess: Bool {
+        get { defaults.bool(forKey: hadAccessibilityKey) }
+        set { defaults.set(newValue, forKey: hadAccessibilityKey) }
     }
 
     func isExcluded(_ bundleID: String) -> Bool {
