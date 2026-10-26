@@ -14,7 +14,7 @@ final class UpdateWindowController {
     func show() {
         let window = self.window ?? makeWindow()
         self.window = window
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.bringToFront()
         window.center()
         window.makeKeyAndOrderFront(nil)
     }

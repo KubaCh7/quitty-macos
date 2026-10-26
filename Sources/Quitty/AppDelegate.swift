@@ -18,6 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Finish launching first: an alert shown from here blocks the launch,
+        // and macOS then reports Quitty as not responding.
+        Task { @MainActor in
+            self.setUp()
+        }
+    }
+
+    private func setUp() {
         if AppMover.moveToApplicationsIfNeeded() {
             return
         }
@@ -41,6 +49,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
         model.start()
+
+        // A menu bar app shows nothing when it opens, and the icon can hide
+        // behind the notch. Open the panel when there is something to do.
+        if !model.isTrusted {
+            showPanel()
+        }
+    }
+
+    /// Opening Quitty again (Finder, Spotlight, Launchpad) shows the panel.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showPanel()
+        return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -55,16 +75,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePopover(_ sender: Any?) {
-        guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(sender)
-            return
+        } else {
+            showPanel()
         }
+    }
+
+    private func showPanel() {
+        guard let popover, !popover.isShown, let button = statusItem?.button else { return }
         model.refresh()
         if #unavailable(macOS 13.0) {
             popover.contentSize = hostingController.view.fittingSize
         }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.bringToFront()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }

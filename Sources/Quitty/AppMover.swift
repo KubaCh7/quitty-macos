@@ -20,7 +20,8 @@ enum AppMover {
         alert.addButton(withTitle: "Not Now")
         alert.showsSuppressionButton = true
         alert.suppressionButton?.title = "Don't ask again"
-        NSApp.activate(ignoringOtherApps: true)
+        alert.window.level = .floating
+        NSApp.bringToFront()
         let response = alert.runModal()
         if alert.suppressionButton?.state == .on {
             UserDefaults.standard.set(true, forKey: dontAskKey)

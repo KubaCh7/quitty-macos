@@ -108,7 +108,7 @@ final class AppModel: ObservableObject {
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = true
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.bringToFront()
         guard panel.runModal() == .OK else { return }
         for url in panel.urls {
             if let id = Bundle(url: url)?.bundleIdentifier {
@@ -158,7 +158,7 @@ final class AppModel: ObservableObject {
             let alert = NSAlert()
             alert.messageText = "Couldn't change Launch at Login"
             alert.informativeText = error.localizedDescription
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.bringToFront()
             alert.runModal()
         }
         launchAtLogin = LoginItem.isEnabled

@@ -28,6 +28,20 @@ All versions are on the [Releases](https://github.com/KubaCh7/quitty-macos/relea
 
 If you open Quitty from the disk image or from Downloads instead, it offers to move itself to Applications and ejects the disk image afterwards.
 
+Quitty lives in the menu bar, so opening it doesn't show a window. Open it again from Applications or Spotlight to bring up its panel.
+
+### "You can't open the application Quitty because it is not responding"
+
+An earlier copy of Quitty is stuck in the background (versions up to 1.3.0 could hang on the "Move to Applications" question). Force-quit it, clear the download flag and open it again:
+
+```sh
+killall Quitty
+xattr -cr /Applications/Quitty.app
+open /Applications/Quitty.app
+```
+
+Clearing the flag also gets you past Gatekeeper when **Open Anyway** doesn't work.
+
 ## Accessibility permission
 
 Quitty needs Accessibility access to see when you close other apps' windows:

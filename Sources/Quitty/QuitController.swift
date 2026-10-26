@@ -21,6 +21,9 @@ final class QuitController {
     func start() {
         guard !isRunning else { return }
         isRunning = true
+        // Default for every Accessibility call, so an app that hangs can't
+        // freeze Quitty for the standard six seconds.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.3)
 
         let center = NSWorkspace.shared.notificationCenter
         workspaceObservers = [
