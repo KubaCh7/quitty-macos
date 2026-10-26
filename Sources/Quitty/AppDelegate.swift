@@ -56,25 +56,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
 
         if !AXIsProcessTrusted() {
-            menu.addItem(withTitle: "⚠️ Quitty potrzebuje dostępu (Dostępność)", action: nil, keyEquivalent: "")
-            menu.addItem(item("Otwórz Ustawienia systemowe…", #selector(openAccessibilitySettings)))
+            menu.addItem(withTitle: "⚠️ Quitty needs Accessibility access", action: nil, keyEquivalent: "")
+            menu.addItem(item("Open System Settings…", #selector(openAccessibilitySettings)))
             menu.addItem(.separator())
         }
 
-        let enabled = item("Zamykaj aplikacje po zamknięciu ostatniego okna", #selector(toggleEnabled))
+        let enabled = item("Quit apps when their last window closes", #selector(toggleEnabled))
         enabled.state = settings.isEnabled ? .on : .off
         menu.addItem(enabled)
 
-        let exclusions = NSMenuItem(title: "Wyjątki (nie zamykaj)", action: nil, keyEquivalent: "")
+        let exclusions = NSMenuItem(title: "Never quit", action: nil, keyEquivalent: "")
         exclusions.submenu = exclusionsMenu()
         menu.addItem(exclusions)
 
-        let login = item("Uruchamiaj przy logowaniu", #selector(toggleLaunchAtLogin))
+        let login = item("Launch at login", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
 
         menu.addItem(.separator())
-        menu.addItem(item("Zakończ Quitty", #selector(quit), key: "q"))
+        menu.addItem(item("Quit Quitty", #selector(quit), key: "q"))
     }
 
     private func exclusionsMenu() -> NSMenu {
@@ -102,9 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !sorted.isEmpty {
             menu.addItem(.separator())
         }
-        menu.addItem(item("Dodaj aplikację…", #selector(addExclusion)))
+        menu.addItem(item("Add app…", #selector(addExclusion)))
 
-        let finder = NSMenuItem(title: "Finder jest zawsze pomijany", action: nil, keyEquivalent: "")
+        let finder = NSMenuItem(title: "Finder is never quit", action: nil, keyEquivalent: "")
         finder.isEnabled = false
         menu.addItem(finder)
         return menu
@@ -136,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func addExclusion() {
         let panel = NSOpenPanel()
-        panel.title = "Wybierz aplikacje, których Quitty ma nie zamykać"
+        panel.title = "Choose apps Quitty should never quit"
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = true
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -159,7 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Nie udało się zmienić uruchamiania przy logowaniu"
+            alert.messageText = "Couldn't change the launch at login setting"
             alert.informativeText = error.localizedDescription
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()

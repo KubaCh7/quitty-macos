@@ -23,4 +23,4 @@ cp "$BIN_DIR/Quitty" "$APP/Contents/MacOS/Quitty"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
 codesign --force --sign "${CODESIGN_IDENTITY:--}" "$APP"
-echo "Zbudowano: $APP"
+echo "Built $APP"
