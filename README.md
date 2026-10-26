@@ -14,16 +14,19 @@ Requires macOS 12 (Monterey) or later. Runs natively on Apple Silicon and Intel.
 
 ## Download
 
-**[⬇ Download Quitty.zip](https://github.com/KubaCh7/quitty-macos/releases/latest/download/Quitty.zip)** (latest release)
+**[⬇ Download Quitty.dmg](https://github.com/KubaCh7/quitty-macos/releases/latest/download/Quitty.dmg)** (latest release)
 
 All versions are on the [Releases](https://github.com/KubaCh7/quitty-macos/releases) page.
 
-1. Unzip it and move `Quitty.app` to your **Applications** folder.
-2. Quitty isn't signed with an Apple Developer certificate, so macOS blocks it the first time you open it. Right-click the app and choose **Open**, or run:
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/Quitty.app
-   ```
+1. Open `Quitty.dmg` and drag **Quitty** onto the **Applications** folder in the window that appears.
+2. Open Quitty from Applications. It isn't signed with an Apple Developer certificate, so macOS blocks it the first time:
+   - macOS 15 and later: open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Quitty.
+   - macOS 12–14: right-click Quitty, choose **Open**, then **Open** again.
+
+   Or run `xattr -dr com.apple.quarantine /Applications/Quitty.app` in Terminal.
 3. Grant Accessibility access (see below).
+
+If you open Quitty from the disk image or from Downloads instead, it offers to move itself to Applications and ejects the disk image afterwards.
 
 ## Accessibility permission
 
@@ -71,11 +74,11 @@ cp -R build/Quitty.app /Applications/
 open /Applications/Quitty.app
 ```
 
-`UNIVERSAL=1 ./scripts/build-app.sh` builds for both Apple Silicon and Intel (needs full Xcode).
+`UNIVERSAL=1 ./scripts/build-app.sh` builds for both Apple Silicon and Intel (needs full Xcode). `./scripts/build-dmg.sh` then packs `build/Quitty.dmg`. The icon and the disk image background are drawn by `scripts/make-assets.py`.
 
 ## Publishing a release
 
-Bump `CFBundleShortVersionString` in `Resources/Info.plist` and push to the default branch. GitHub Actions builds the app and publishes `Quitty.zip` as release `v<version>`. Pushes that keep the same version don't create a new release.
+Bump `CFBundleShortVersionString` in `Resources/Info.plist` and push to the default branch. GitHub Actions builds the app and publishes `Quitty.dmg` and `Quitty.zip` as release `v<version>`. Pushes that keep the same version don't create a new release.
 
 You can also push a tag that starts with `v` (for example `git tag v1.0.1 && git push origin v1.0.1`).
 

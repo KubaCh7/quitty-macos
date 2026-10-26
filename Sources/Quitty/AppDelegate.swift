@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if AppMover.moveToApplicationsIfNeeded() {
+            return
+        }
         model = AppModel()
         popover = NSPopover()
         hostingController = NSHostingController(rootView: MenuView(model: model, updater: model.updater))
@@ -41,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        model.stop()
+        model?.stop()
     }
 
     private func updateIcon(isActive: Bool) {

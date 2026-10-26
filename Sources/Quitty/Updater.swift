@@ -78,7 +78,7 @@ final class Updater: ObservableObject {
         do {
             let newApp = try await downloadAndExtract(release)
             try replaceRunningApp(with: newApp)
-            relaunch()
+            Relauncher.relaunch(at: Bundle.main.bundleURL)
         } catch {
             status = .failed(error.localizedDescription)
         }
@@ -175,20 +175,6 @@ final class Updater: ObservableObject {
         } catch {
             throw UpdateError.notWritable
         }
-    }
-
-    /// Opens the new copy once this process has exited.
-    private func relaunch() {
-        let script = Process()
-        script.executableURL = URL(fileURLWithPath: "/bin/sh")
-        script.arguments = [
-            "-c",
-            "while /bin/kill -0 \"$0\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$1\"",
-            String(ProcessInfo.processInfo.processIdentifier),
-            Bundle.main.bundlePath,
-        ]
-        try? script.run()
-        NSApp.terminate(nil)
     }
 
     nonisolated private static func run(_ path: String, _ arguments: [String]) async throws {
