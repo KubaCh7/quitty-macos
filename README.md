@@ -62,12 +62,9 @@ open /Applications/Quitty.app
 
 ## Publishing a release
 
-Push a tag that starts with `v`. GitHub Actions builds the app and attaches `Quitty.zip` to a new release:
+Bump `CFBundleShortVersionString` in `Resources/Info.plist` and push to the default branch. GitHub Actions builds the app and publishes `Quitty.zip` as release `v<version>`. Pushes that keep the same version don't create a new release.
 
-```sh
-git tag v1.0.0
-git push origin v1.0.0
-```
+You can also push a tag that starts with `v` (for example `git tag v1.0.1 && git push origin v1.0.1`).
 
 ## How it works
 
