@@ -7,6 +7,8 @@ On macOS, clicking the red ✕ only closes the window. The app keeps running in 
 - Finder is never quit, and neither are menu bar apps (apps without a Dock icon).
 - You can add your own exceptions from the menu, e.g. Music or Spotify, so they keep playing without a window.
 - Apps get a few seconds of protection after launch, so a splash screen closing doesn't quit them before the main window opens.
+- Quitty updates itself from GitHub Releases.
+- The menu bar panel and update window use Liquid Glass on macOS 26 Tahoe. On older macOS versions they fall back to standard translucent materials.
 
 Requires macOS 13 (Ventura) or later. Runs natively on Apple Silicon and Intel.
 
@@ -31,20 +33,31 @@ Quitty needs Accessibility access to see when you close other apps' windows:
 
 macOS asks for this when Quitty starts. Quitty starts working as soon as you turn the switch on, without a restart.
 
-> After updating or rebuilding Quitty, macOS may stop recognizing it because its signature changed. If that happens, remove Quitty from the Accessibility list (the "−" button) and add it again.
+> **Quitty is switched on in Accessibility but still says it needs access?** macOS is holding a stale entry from an older copy, which is common with v1.0.0. Click **Already on? Reset** in the Quitty panel, then turn Quitty on again in System Settings. You can do the same in Terminal with `tccutil reset Accessibility com.kubach7.quitty`.
 
-## Menu
+## The Quitty panel
 
-Click the ✕ icon in the menu bar:
+Click the ✕ icon in the menu bar to open the panel:
 
-| Item | What it does |
-|---|---|
-| Quit apps when their last window closes | Turns Quitty on or off |
-| Never quit | Pick apps Quitty should leave alone, or add one from Applications |
-| Launch at login | Starts Quitty when you log in |
-| Quit Quitty | Quits Quitty itself |
+- **Switch at the top:** turns Quitty on or off.
+- **Never quit:** a switch for every running app. Turn one on to keep that app running without windows. **Add App…** picks an app from Applications.
+- **Launch at login** and **Check for updates automatically.**
+- **Updates:** shows whether a newer version exists. **Check** asks GitHub right away.
+- **Quit Quitty** (⌘Q).
 
-The icon is grayed out when Quitty is turned off or doesn't have Accessibility access.
+The icon is filled while Quitty is active and outlined when it is paused or doesn't have Accessibility access.
+
+## Updates
+
+Quitty checks GitHub Releases once a day (and a few seconds after it starts). When a newer version is out, a window shows the release notes:
+
+- **Install and Relaunch** downloads `Quitty.zip`, replaces the app in place and starts the new version.
+- **Later** closes the window. The update stays available in the panel.
+- **Skip This Version** stops automatic checks from offering that version again.
+
+Quitty needs to run from a folder it can write to, such as Applications. If macOS runs it from a temporary location (this happens to apps opened straight from Downloads), the update asks you to move Quitty to Applications first.
+
+Version 1.0.0 doesn't have the updater, so download 1.1.0 or later manually once. After that, updates install from inside the app.
 
 ## Building from source
 
@@ -68,11 +81,15 @@ You can also push a tag that starts with `v` (for example `git tag v1.0.1 && git
 
 ## How it works
 
-Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window disappears, Quitty waits 0.6 s, because some apps briefly destroy and recreate windows (for example when entering full screen). Then it checks the app's window list again. If the list is empty, Quitty calls `terminate()`, which is the same as choosing Quit.
+Quitty lives in the menu bar and uses the Accessibility API (`AXObserver`) to watch the windows of every running app. When a window closes, Quitty reads the app's window list and confirms it once more about 0.2 s later, because some apps briefly swap one window for another. If no windows are left, Quitty calls `terminate()`, which is the same as choosing Quit. Floating palettes don't count as windows. Minimized windows do.
+
+Some apps don't send every Accessibility notification, so Quitty also checks the frontmost app's windows every 0.3 s.
 
 The code is in `Sources/Quitty/`:
 
 - `AppWatcher.swift` watches the windows of one app.
 - `QuitController.swift` keeps track of running apps and decides whether to quit one.
-- `AppDelegate.swift` handles the menu bar item and the Accessibility permission.
-- `Settings.swift` stores preferences and exceptions.
+- `AppModel.swift` holds the panel's state, the Accessibility permission and the exceptions.
+- `Updater.swift` checks GitHub Releases and installs updates.
+- `Views/` contains the SwiftUI panel, the update window and the Liquid Glass helpers.
+- `Settings.swift` stores preferences.

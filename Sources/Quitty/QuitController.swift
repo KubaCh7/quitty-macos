@@ -5,6 +5,7 @@ import AppKit
 final class QuitController {
     private var watchers: [pid_t: AppWatcher] = [:]
     private var workspaceObservers: [NSObjectProtocol] = []
+    private var pollTimer: Timer?
     private(set) var isRunning = false
 
     /// Apps get this long after launch before they can be quit, so splash
@@ -12,6 +13,9 @@ final class QuitController {
     private static let launchGracePeriod: TimeInterval = 3
     private static let attachRetryDelay: TimeInterval = 0.5
     private static let maxAttachAttempts = 20
+    /// How often the frontmost app's windows are checked, in case it doesn't
+    /// send the Accessibility notifications we rely on.
+    private static let pollInterval: TimeInterval = 0.3
 
     func start() {
         guard !isRunning else { return }
@@ -32,11 +36,19 @@ final class QuitController {
         for app in NSWorkspace.shared.runningApplications where app.activationPolicy != .prohibited {
             attach(app)
         }
+
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
+            self?.pollFrontmostApp()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
     }
 
     func stop() {
         guard isRunning else { return }
         isRunning = false
+        pollTimer?.invalidate()
+        pollTimer = nil
         workspaceObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
         workspaceObservers.removeAll()
         watchers.values.forEach { $0.stop() }
@@ -64,10 +76,23 @@ final class QuitController {
         watchers.removeValue(forKey: app.processIdentifier)?.stop()
     }
 
+    /// The app you just closed a window in is almost always the frontmost one.
+    private func pollFrontmostApp() {
+        guard Settings.shared.isEnabled,
+              let app = NSWorkspace.shared.frontmostApplication,
+              app.activationPolicy == .regular else { return }
+        if let watcher = watchers[app.processIdentifier] {
+            watcher.poll()
+        } else {
+            attach(app, attempt: Self.maxAttachAttempts)
+        }
+    }
+
     private func lastWindowClosed(in watcher: AppWatcher) {
         let app = watcher.app
         guard Settings.shared.isEnabled,
               !app.isTerminated,
+              !app.isHidden,
               app.activationPolicy == .regular,
               let bundleID = app.bundleIdentifier,
               !Settings.shared.isExcluded(bundleID) else { return }

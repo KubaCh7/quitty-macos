@@ -12,9 +12,16 @@ final class Settings {
     private let defaults = UserDefaults.standard
     private let enabledKey = "enabled"
     private let excludedKey = "excludedBundleIDs"
+    private let autoCheckKey = "autoCheckForUpdates"
+    private let skippedVersionKey = "skippedVersion"
+    private let lastUpdateCheckKey = "lastUpdateCheck"
 
     private init() {
-        defaults.register(defaults: [enabledKey: true, excludedKey: [String]()])
+        defaults.register(defaults: [
+            enabledKey: true,
+            excludedKey: [String](),
+            autoCheckKey: true,
+        ])
     }
 
     var isEnabled: Bool {
@@ -25,6 +32,22 @@ final class Settings {
     var excludedBundleIDs: Set<String> {
         get { Set(defaults.stringArray(forKey: excludedKey) ?? []) }
         set { defaults.set(newValue.sorted(), forKey: excludedKey) }
+    }
+
+    var autoCheckForUpdates: Bool {
+        get { defaults.bool(forKey: autoCheckKey) }
+        set { defaults.set(newValue, forKey: autoCheckKey) }
+    }
+
+    /// A version the user chose to skip; automatic checks don't offer it again.
+    var skippedVersion: String? {
+        get { defaults.string(forKey: skippedVersionKey) }
+        set { defaults.set(newValue, forKey: skippedVersionKey) }
+    }
+
+    var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: lastUpdateCheckKey) as? Date }
+        set { defaults.set(newValue, forKey: lastUpdateCheckKey) }
     }
 
     func isExcluded(_ bundleID: String) -> Bool {

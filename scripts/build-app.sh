@@ -22,5 +22,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/Quitty" "$APP/Contents/MacOS/Quitty"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
-codesign --force --sign "${CODESIGN_IDENTITY:--}" "$APP"
+if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+  codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
+else
+  # Ad-hoc signatures change with every build, which makes macOS forget the
+  # Accessibility permission after each update. Pinning the designated
+  # requirement to the bundle ID lets the permission carry over.
+  BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' Resources/Info.plist)"
+  codesign --force --sign - --requirements "=designated => identifier \"$BUNDLE_ID\"" "$APP"
+fi
+codesign --display --requirements - "$APP"
 echo "Built $APP"
